@@ -149,6 +149,12 @@ DELIMITER ;
 Exercici 7 - Fes una consulta utilitzant la funció anterior perquè mostri de cada empleat, el codi d’empleat, el nom, els anys treballats i la categoria professional a la que pertany.
 
 ```mysql
+SELECT 
+    e.codi_empleat,
+    e.nom,
+    TIMESTAMPDIFF(YEAR, e.data_ingres, CURDATE()) AS anys_treballats,
+    spCategoria(e.codi_empleat) AS categoria_professional
+FROM empleats e;
 
 ```
 
@@ -156,6 +162,28 @@ Exercici 7 - Fes una consulta utilitzant la funció anterior perquè mostri de c
 Exercici 8 - Fes una funció anomenada spEdat, tal que donada una data per paràmetre ens retorni l'edat d'una persona. Les dates posteriors a la data d'avui han de retornar 0.
 
 ```mysql
+CREATE FUNCTION spEdat(data_naixement DATE) 
+RETURNS INT
+BEGIN
+    DECLARE edat INT;
+    
+    -- Comprovem si la data de naixement és posterior a la data d'avui
+    IF data_naixement > CURDATE() THEN
+        RETURN 0;
+    END IF;
+    
+    -- Calcula l'edat
+    SET edat = TIMESTAMPDIFF(YEAR, data_naixement, CURDATE());
+    
+    -- Comprovem si la persona ja ha fet anys aquest any
+    IF MONTH(data_naixement) > MONTH(CURDATE()) OR (MONTH(data_naixement) = MONTH(CURDATE()) AND DAY(data_naixement) > DAY(CURDATE())) THEN
+        SET edat = edat - 1;
+    END IF;
+    
+    RETURN edat;
+END;
+
+SELECT spEdat('1990-03-15') AS edat;
 
 ```
 
@@ -163,6 +191,21 @@ Exercici 8 - Fes una funció anomenada spEdat, tal que donada una data per parà
 Exercici 9 - Fes una funció que ens retorni el número de directors (caps) diferents tenim.
 
 ```mysql
+CREATE FUNCTION spDirectors() 
+RETURNS INT
+BEGIN
+    DECLARE num_directors INT;
+    
+    -- Comptem els directors únics (aquells amb codi_director que no siguin NULL ni el mateix codi_empleat)
+    SELECT COUNT(DISTINCT codi_director) INTO num_directors
+    FROM empleats
+    WHERE codi_director IS NOT NULL AND codi_empleat != codi_director;
+    
+    -- Retornem el nombre de directors
+    RETURN num_directors;
+END;
+
+SELECT spDirectors() AS num_directors;
 
 ```
 
@@ -170,6 +213,11 @@ Exercici 9 - Fes una funció que ens retorni el número de directors (caps) dife
 Exercici 10 - Quina instrucció utilitzarem si volem veure el contingut de la funció spPringat?
 
 ```mysql
+SHOW CREATE FUNCTION spPringat;
+
+SELECT pg_get_functiondef('spPringat'::regprocedure);
+
+SELECT OBJECT_DEFINITION(OBJECT_ID('spPringat'));
 
 ```
 
