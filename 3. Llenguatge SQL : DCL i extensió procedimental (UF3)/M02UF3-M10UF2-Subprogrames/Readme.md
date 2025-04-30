@@ -228,6 +228,20 @@ SELECT OBJECT_DEFINITION(OBJECT_ID('spPringat'));
 Exercici 1 - Fes un procediment que permeti obtenir la data i hora del sistema i l’usuari actual. 
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE obtenirDataHoraUsuari()
+BEGIN
+    -- Mostrem la data i hora actual
+    SELECT NOW() AS data_hora_actual;
+
+    -- Mostrem l'usuari actual
+    SELECT USER() AS usuari_actual;
+END$$
+
+DELIMITER ;
+
+CALL obtenirDataHoraUsuari();
 
 ```
 
@@ -235,6 +249,25 @@ Exercici 1 - Fes un procediment que permeti obtenir la data i hora del sistema i
 Exercici 2 - Fes un procediment que intercanvii el sou de dos empleats passats per paràmetre.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE intercanviarSous(codi1 INT, codi2 INT)
+BEGIN
+    DECLARE sou1 DECIMAL(10, 2);
+    DECLARE sou2 DECIMAL(10, 2);
+
+    -- Obtenim els sous dels dos empleats
+    SELECT sou INTO sou1 FROM empleats WHERE codi_empleat = codi1;
+    SELECT sou INTO sou2 FROM empleats WHERE codi_empleat = codi2;
+
+    -- Intercanviem els sous
+    UPDATE empleats SET sou = sou2 WHERE codi_empleat = codi1;
+    UPDATE empleats SET sou = sou1 WHERE codi_empleat = codi2;
+END$$
+
+DELIMITER ;
+
+CALL intercanviarSous(1, 2);
 
 ```
 
@@ -242,6 +275,22 @@ Exercici 2 - Fes un procediment que intercanvii el sou de dos empleats passats p
 Exercici 3 - Fes un procediment que donat dos Ids d'empleat assigni el codi de departament del primer en el segon.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE assignarDepartament(codi1 INT, codi2 INT)
+BEGIN
+    DECLARE departament1 INT;
+
+    -- Obtenim el departament del primer empleat
+    SELECT departament_id INTO departament1 FROM empleats WHERE codi_empleat = codi1;
+
+    -- Assignem el departament del primer empleat al segon empleat
+    UPDATE empleats SET departament_id = departament1 WHERE codi_empleat = codi2;
+END$$
+
+DELIMITER ;
+
+CALL assignarDepartament(1, 2);
 
 ```
 
@@ -249,6 +298,33 @@ Exercici 3 - Fes un procediment que donat dos Ids d'empleat assigni el codi de d
 Exercici 4 - Fes un procediment que donat dos codis de departament assigni tots els empleats del segon en el primer. Un cop executat el procediment el departament que correspont en el segon paràmetre ha de quedar desert/sense cap empleat.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE transferirEmpleats(codi_departament1 INT, codi_departament2 INT)
+BEGIN
+    DECLARE empleats_count INT;
+
+    -- Comprovem si el segon departament té empleats
+    SELECT COUNT(*) INTO empleats_count FROM empleats WHERE departament_id = codi_departament2;
+
+    IF empleats_count > 0 THEN
+        -- Actualitzem els empleats del segon departament assignant-los al primer departament
+        UPDATE empleats
+        SET departament_id = codi_departament1
+        WHERE departament_id = codi_departament2;
+
+        -- Deixem el segon departament sense empleats
+        UPDATE empleats
+        SET departament_id = NULL
+        WHERE departament_id = codi_departament2;
+    ELSE
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El departament 2 ja està buit.';
+    END IF;
+END$$
+
+DELIMITER ;
+
+CALL transferirEmpleats(1, 2);
 
 ```
 
@@ -256,6 +332,26 @@ Exercici 4 - Fes un procediment que donat dos codis de departament assigni tots 
 Exercici 5 - Fes un procediment per mostrar un llistat dels empleats. Volem veure el id_empleat, nom_empleat, nom_departament i el nom de la localització del departament.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE llistatEmpleats()
+BEGIN
+    SELECT 
+        e.id_empleat,
+        e.nom_empleat,
+        d.nom_departament,
+        l.nom_localitzacio
+    FROM 
+        empleats e
+    JOIN 
+        departaments d ON e.departament_id = d.departament_id
+    JOIN 
+        localitzacions l ON d.localitzacio_id = l.localitzacio_id;
+END$$
+
+DELIMITER ;
+
+CALL llistatEmpleats();
 
 ```
 
@@ -263,6 +359,37 @@ Exercici 5 - Fes un procediment per mostrar un llistat dels empleats. Volem veur
 Exercici 6 - Fes un procediment que donat un codi d’empleat, ens doni la informació de l’empleat ( agafa la informació que creguis rellevant).
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE obtenirInformacioEmpleat(codi_empleat INT)
+BEGIN
+    -- Comprovem si l'empleat existeix
+    IF NOT EXISTS (SELECT 1 FROM empleats WHERE id_empleat = codi_empleat) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'L\'empleat no existeix.';
+    ELSE
+        -- Si l'empleat existeix, obtenim la seva informació
+        SELECT 
+            e.id_empleat,
+            e.nom_empleat,
+            e.data_inici,
+            e.sou,
+            e.càrrec,
+            d.nom_departament,
+            l.nom_localitzacio
+        FROM 
+            empleats e
+        JOIN 
+            departaments d ON e.departament_id = d.departament_id
+        JOIN 
+            localitzacions l ON d.localitzacio_id = l.localitzacio_id
+        WHERE 
+            e.id_empleat = codi_empleat;
+    END IF;
+END$$
+
+DELIMITER ;
+
+CALL obtenirInformacioEmpleat(1);
 
 ```
 
@@ -270,6 +397,29 @@ Exercici 6 - Fes un procediment que donat un codi d’empleat, ens doni la infor
 Exercici 7 - Volem fer un registre dels usuaris que entren al nostre sistema. Per fer-ho primer caldrà crear una taula amb dos camps, un per guardar l’usuari i l’altre per guardar la data i hora de l’accés. 
 
 ```mysql
+CREATE TABLE registres_entrades (
+    usuari VARCHAR(255) NOT NULL,
+    data_entrada DATETIME NOT NULL,
+    PRIMARY KEY (usuari, data_entrada)
+);
+
+
+INSERT INTO registres_entrades (usuari, data_entrada)
+VALUES ('johndoe', NOW());
+
+
+DELIMITER $$
+
+CREATE PROCEDURE enregistrarEntrada(usuari_iniciat VARCHAR(255))
+BEGIN
+    INSERT INTO registres_entrades (usuari, data_entrada)
+    VALUES (usuari_iniciat, NOW());
+END$$
+
+DELIMITER ;
+
+
+CALL enregistrarEntrada('janedoe');
 
 ```
 
@@ -277,6 +427,17 @@ Exercici 7 - Volem fer un registre dels usuaris que entren al nostre sistema. Pe
 Exercici 8 - A continuació feu un procediment sense arguments, de manera que cada vegada que el crideu, insereixi en aquesta taula l’usuari actual i la data i hora en que s’ha executat el procediment.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE registrarEntrada()
+BEGIN
+    INSERT INTO registres_entrades (usuari, data_entrada)
+    VALUES (USER(), NOW());
+END$$
+
+DELIMITER ;
+
+CALL registrarEntrada();
 
 ```
 
@@ -284,12 +445,59 @@ Exercici 8 - A continuació feu un procediment sense arguments, de manera que ca
 Exercici 9 - Fes un procediment que ens permeti afegir un nou departament però amb la següent particularitat: En cas que la localització no existeixi a la taula localitzacions, ens posarà un NULL en el camp id_localtizacio de la taula departaments. Al procediment li hem de passar el codi de departament, el nom del departament i el codi de la localització.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE afegirDepartament(
+    codi_departament INT,
+    nom_departament VARCHAR(255),
+    codi_localitzacio INT
+)
+BEGIN
+    DECLARE localitzacio_existent INT;
+
+    -- Comprovem si la localització existeix a la taula localitzacions
+    SELECT COUNT(*) INTO localitzacio_existent
+    FROM localitzacions
+    WHERE localitzacio_id = codi_localitzacio;
+
+    -- Si la localització existeix, inserim amb el codi de la localització
+    IF localitzacio_existent > 0 THEN
+        INSERT INTO departaments (departament_id, nom_departament, id_localitzacio)
+        VALUES (codi_departament, nom_departament, codi_localitzacio);
+    ELSE
+        -- Si la localització no existeix, inserim amb NULL en el camp id_localitzacio
+        INSERT INTO departaments (departament_id, nom_departament, id_localitzacio)
+        VALUES (codi_departament, nom_departament, NULL);
+    END IF;
+END$$
+
+DELIMITER ;
+
+CALL afegirDepartament(101, 'Recursos Humans', 5);
 
 ```
 ## Exercici 10 - Procediments
 Exercici 10 - Fes un procediment que donat un codi d’empleat, ens posi en paràmetres de sortida el nom i el cognom. Indica com ho pots fer per comprovar si el procediment et funciona.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE obtenirNomCognom(
+    IN codi_empleat INT,     -- Paràmetre d'entrada: codi d'empleat
+    OUT nom_empleat VARCHAR(255),  -- Paràmetre de sortida: nom de l'empleat
+    OUT cognom_empleat VARCHAR(255)  -- Paràmetre de sortida: cognom de l'empleat
+)
+BEGIN
+    -- Consulta per obtenir el nom i cognom de l'empleat a partir del codi
+    SELECT nom, cognom
+    INTO nom_empleat, cognom_empleat
+    FROM empleats
+    WHERE id_empleat = codi_empleat;
+END$$
+
+DELIMITER ;
+
+CALL obtenirNomCognom(123, @nom, @cognom);
 
 ```
 
@@ -297,6 +505,23 @@ Exercici 10 - Fes un procediment que donat un codi d’empleat, ens posi en par�
 Exercici 11 - Fes un procediment que ens permeti modificar el nom i cognom d’un empleat. 
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE modificarNomCognom(
+    IN codi_empleat INT,        -- Codi de l'empleat a modificar
+    IN nou_nom VARCHAR(255),    -- Nou nom de l'empleat
+    IN nou_cognom VARCHAR(255)  -- Nou cognom de l'empleat
+)
+BEGIN
+    -- Actualització del nom i cognom de l'empleat
+    UPDATE empleats
+    SET nom = nou_nom, cognom = nou_cognom
+    WHERE id_empleat = codi_empleat;
+END$$
+
+DELIMITER ;
+
+CALL modificarNomCognom(123, 'Joan', 'Pérez');
 
 ```
 
@@ -316,6 +541,38 @@ Fes un procediment amb nom spRegistrarLog que rebrà com a paràmetres el nom de
 Aquest procediment només cal que insereixi un registre en la taula logs_usuaris amb les dades rebudes, tenint en compte l’usuari actual i la data-hora del sistema.
 
 ```mysql
+CREATE TABLE logs_usuaris (
+    id INT AUTO_INCREMENT PRIMARY KEY,    
+    usuari VARCHAR(100),                  
+    data DATETIME,                        
+    taula VARCHAR(50),                    
+    accio VARCHAR(20),                     
+    valor_pk VARCHAR(200)                  
+);
+
+DELIMITER $$
+
+CREATE PROCEDURE spRegistrarLog(
+    IN taula_name VARCHAR(50),           -- Nom de la taula
+    IN accio_type VARCHAR(20),           -- Tipus d'acció (ELIMINAR, AFEGIR, MODIFICAR, INSERIR)
+    IN valor_pk VARCHAR(200)            -- Valor de la clau primària del registre afectat
+)
+BEGIN
+    DECLARE current_user VARCHAR(100);
+    DECLARE current_datetime DATETIME;
+
+    -- Obtenim l'usuari actual i la data-hora del sistema
+    SET current_user = USER();              -- Obtenció de l'usuari actual
+    SET current_datetime = NOW();           -- Obtenció de la data-hora del sistema
+
+    -- Inserim el registre a la taula logs_usuaris
+    INSERT INTO logs_usuaris (usuari, data, taula, accio, valor_pk)
+    VALUES (current_user, current_datetime, taula_name, accio_type, valor_pk);
+END$$
+
+DELIMITER ;
+
+CALL spRegistrarLog('empleats', 'ELIMINAR', '123');
 
 ```
 
@@ -325,6 +582,23 @@ Per exemple, si fem una crida al procediment per eliminar un departament:<br>
 CALL eliminarDept(300);
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE eliminarDept(
+    IN codi_dept INT              -- Codi del departament a eliminar
+)
+BEGIN
+    -- Eliminar el departament de la taula departaments
+    DELETE FROM departaments
+    WHERE id_departament = codi_dept;
+
+    -- Registrar l'eliminació a la taula de logs_usuaris
+    CALL spRegistrarLog('DEPARTAMENTS', 'ELIMINAR', codi_dept);
+END$$
+
+DELIMITER ;
+
+CALL eliminarDept(300);
 
 ```
 
@@ -332,5 +606,26 @@ CALL eliminarDept(300);
 Exercici 14 - Fes un procediment que ens posi en paràmetres de sortida, el número d’empleats que tenim, el número de departaments i el número de localitzacions.
 
 ```mysql
+DELIMITER $$
+
+CREATE PROCEDURE spContarEmpleatsDepartamentsLocalitzacions(
+    OUT num_empleats INT,            
+    OUT num_departaments INT,        
+    OUT num_localitzacions INT       
+)
+BEGIN
+    -- Comptem el nombre total d'empleats
+    SELECT COUNT(*) INTO num_empleats FROM empleats;
+
+    -- Comptem el nombre total de departaments
+    SELECT COUNT(*) INTO num_departaments FROM departaments;
+
+    -- Comptem el nombre total de localitzacions
+    SELECT COUNT(*) INTO num_localitzacions FROM localitzacions;
+END$$
+
+DELIMITER ;
+
+CALL spContarEmpleatsDepartamentsLocalitzacions(@num_empleats, @num_departaments, @num_localitzacions);
 
 ```
